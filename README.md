@@ -78,6 +78,7 @@ flowchart LR
 用 [DeepSeek Harness](https://www.deepseek.com/harness/) 的话，可以装上 `plugin/` 里的知识库面板，就是上面截图里的样子：
 
 - 在对话旁边浏览主题页和资料页，点出处直接跳到资料页的那一页、那一节并高亮
+- 全文搜索：搜主题页和资料页的正文，结果精确到页或小节
 - 「看原文」：PDF / PPT 逐页翻预览图，Markdown 等文字原文自动定位到对应小节
 - 「带着这页去问」：一键把当前页作为上下文填进对话框
 - inbox 有新资料时，一键发出「处理 inbox」

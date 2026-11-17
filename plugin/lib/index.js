@@ -6,12 +6,14 @@
  *       kb      目录：主题页、资料页清单，inbox 待处理数，最近一条日志
  *       kbPage  一页主题页或资料页的正文
  *       kbOpen  用系统默认软件打开某份资料的原文件
+ *       kbSearch 全文搜索主题页和资料页，命中到小节
  *   - `GET /__dsh-kb/raw?name=<引用名>[&page=N]` → one preview page image, or
  *     the original when the browser can show it (PDF, image, plain text).
  *
  * Where the knowledge base lives, first match wins:
  *   <workspace>/知识库/           the user's own
  *   <workspace>/                  the workspace *is* a knowledge base (has 资料页/ and 主题页/)
+ *   $AKB_KB_DIR, then ~/知识库/   a standalone knowledge base outside the workspace
  *   <workspace>/示例/知识库/      the bundled example, shown with a banner
  *
  * It never writes. Every change goes through the agent, which edits the files
@@ -21,6 +23,7 @@
 import { createReadStream } from 'node:fs'
 import { readFile, readdir, stat } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
+import os from 'node:os'
 import path from 'node:path'
 
 export const name = 'dsh-knowledge-base'
@@ -185,6 +188,67 @@ async function citedBy(kbDir, name) {
   return out
 }
 
+/** A standalone knowledge base: $AKB_KB_DIR, then ~/知识库. */
+async function standaloneKb() {
+  for (const dir of [process.env.AKB_KB_DIR, path.join(os.homedir(), '知识库')]) {
+    if (typeof dir !== 'string' || !path.isAbsolute(dir)) continue
+    if (await isDir(path.join(dir, KINDS.source)) || await isDir(path.join(dir, KINDS.topic))) return { dir, example: false }
+  }
+  return null
+}
+
+/** Split a page body into blocks under its headings: [{ anchor, level, text }]. */
+function blocksOf(body) {
+  const out = [{ anchor: '', level: 0, lines: [] }]
+  for (const l of String(body || '').replace(/\r\n?/g, '\n').split('\n')) {
+    const m = /^(#{1,3})\s+(.+?)\s*$/.exec(l)
+    if (m && m[1].length >= 2) { out.push({ anchor: m[2], level: m[1].length, lines: [] }); continue }
+    if (m) continue
+    out[out.length - 1].lines.push(l)
+  }
+  return out.map((b) => ({ anchor: b.anchor, level: b.level, text: b.lines.map(plain).filter(Boolean).join(' ') }))
+}
+
+/** Full-text search over 主题页 and 资料页; every term must appear in the hit block. */
+async function search(kbDir, q) {
+  const terms = [...new Set(String(q || '').toLowerCase().split(/\s+/).filter(Boolean))].slice(0, 6)
+  if (!terms.length) return []
+  const hits = []
+  for (const kind of ['topic', 'source']) {
+    for (const name of await mdNames(path.join(kbDir, KINDS[kind]))) {
+      const page = await readKbFile(kbDir, kind, name)
+      if (!page) continue
+      const title = (page.meta['标题'] || (/^#\s+(.+)$/m.exec(page.body) || [])[1] || name).trim()
+      const head = (name + ' ' + title + ' ' + (page.meta['类型'] || '') + ' ' + (page.meta['领域'] || '')).toLowerCase()
+      const found = []
+      for (const b of blocksOf(page.body)) {
+        const hay = (b.anchor + ' ' + b.text).toLowerCase()
+        if (!terms.every((t) => hay.includes(t) || head.includes(t))) continue
+        if (!terms.some((t) => hay.includes(t))) continue
+        let score = 0
+        for (const t of terms) {
+          if (head.includes(t)) score += 4
+          if (b.anchor.toLowerCase().includes(t)) score += 3
+          score += Math.min(hay.split(t).length - 1, 5)
+        }
+        const low = b.text.toLowerCase()
+        const at = Math.min(...terms.map((t) => { const i = low.indexOf(t); return i === -1 ? Infinity : i }))
+        const from = at === Infinity ? 0 : Math.max(0, at - 24)
+        const snippet = (from > 0 ? '…' : '') + b.text.slice(from, from + 90) + (b.text.length > from + 90 ? '…' : '')
+        // Topic pages scroll to any heading; 资料页 only to their ### sections.
+        const anchor = kind === 'source' && b.level !== 3 ? '' : b.anchor
+        const section = b.anchor
+        found.push({ score, anchor, section, snippet })
+      }
+      if (!found.length && terms.every((t) => head.includes(t))) found.push({ score: 4 * terms.length, anchor: '', section: '', snippet: '' })
+      found.sort((a, b) => b.score - a.score)
+      for (const f of found.slice(0, 3)) hits.push(Object.assign({ kind, name, title }, f))
+    }
+  }
+  hits.sort((a, b) => b.score - a.score || (a.kind === b.kind ? 0 : a.kind === 'topic' ? -1 : 1))
+  return hits.slice(0, 40)
+}
+
 async function readKb(kbDir) {
   const topics = []
   const refs = new Map()
@@ -219,6 +283,8 @@ async function readKb(kbDir) {
       online: m['在线版'] || '',
       raw: m['原文件'] || '',
       mine: /^是/.test(m['本人撰写'] || ''),
+      scope: m['范围'] || '',
+      domain: m['领域'] || '',
       hasRaw: !!rawAbs && (await isFile(rawAbs)),
       preview: preview ? preview.kind : '',
       previewPages: preview && preview.count ? preview.count : 0,
@@ -266,14 +332,15 @@ export function apply(ctx) {
 
     const seen = new Set()
     const roots = candidates.filter((p) => typeof p === 'string' && path.isAbsolute(p) && !seen.has(p) && seen.add(p))
-    // An own knowledge base anywhere beats the example; the hinted workspace is checked first.
+    // An own knowledge base anywhere beats the example; the hinted workspace is checked first,
+    // then a standalone one (~/知识库) that several apps share.
     let fallback = null
     for (const root of roots) {
       const kb = await findKb(root)
       if (kb && !kb.example) return kb
       if (kb && !fallback) fallback = kb
     }
-    return fallback
+    return (await standaloneKb()) || fallback
   }
 
   const noKb = { ok: false, error: 'no-kb', message: '当前工作区里没有知识库' }
@@ -292,6 +359,13 @@ export function apply(ctx) {
       if (!page) return { ok: false, error: 'not-found', message: '没有找到这一页：' + String(args.name) }
       const extra = args.kind === 'source' ? { citedBy: await citedBy(kb.dir, args.name) } : {}
       return Object.assign({ ok: true, kind: args.kind, name: args.name }, page, extra)
+    },
+
+    async kbSearch(args) {
+      const kb = await resolveKb(args.root)
+      if (!kb) return noKb
+      const q = String(args.q || '').slice(0, 200)
+      return { ok: true, q, hits: await search(kb.dir, q) }
     },
 
     /** 用系统默认软件打开某份资料的原文件。只认资料页属性里登记的路径。 */

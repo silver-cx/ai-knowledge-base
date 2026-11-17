@@ -66,6 +66,17 @@ body[data-ds-dark-theme] .akb-root { --akb-accent:#5686fe; --akb-bg:var(--dsw-al
 .akb-srcrow:hover { background:var(--akb-hover); }
 .akb-srcrow .n { font-weight:600; flex:none; max-width:46%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .akb-srcrow .d { flex:1; min-width:0; font-size:12px; color:var(--akb-fg2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.akb-hit { text-align:left; background:var(--akb-card); border:1px solid var(--akb-line); border-radius:10px; padding:10px 14px; display:flex; flex-direction:column; gap:4px; width:100%; }
+.akb-hit:hover { border-color:var(--akb-accent); }
+.akb-hit b { font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.akb-hit .s { font-size:13px; color:var(--akb-fg2); line-height:1.6; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.akb-root mark { background:color-mix(in srgb,#f0b030 35%,transparent); color:inherit; border-radius:2px; padding:0 1px; }
+.akb-kind { flex:none; font-size:11px; color:var(--akb-fg2); border:1px solid var(--akb-line); border-radius:4px; padding:0 5px; }
+.akb-kind.is-topic { color:var(--akb-accent); border-color:var(--akb-accent); }
+.akb-tsec { border-radius:10px; scroll-margin-top:8px; }
+.akb-tsec.is-hit, .akb-root h2.akb-hhit { background:color-mix(in srgb,var(--akb-accent) 9%,transparent); box-shadow:0 0 0 6px color-mix(in srgb,var(--akb-accent) 9%,transparent); border-radius:6px; }
+.akb-root h2[data-akb-anchor] { scroll-margin-top:8px; }
+.akb-mine.is-private { color:var(--akb-warn); border-color:var(--akb-warn); }
 .akb-mine { flex:none; font-size:11px; font-weight:600; color:var(--akb-accent); border:1px solid var(--akb-accent); border-radius:4px; padding:0 5px; }
 .akb-rhead { flex:none; padding:10px 16px 8px; display:flex; flex-direction:column; gap:6px; border-bottom:1px solid var(--akb-line); background:var(--akb-card); }
 .akb-rhead .t { font-weight:600; font-size:15px; line-height:1.35; }
@@ -326,7 +337,9 @@ function renderMarkdown(body, opt) {
     if (b.t === 'h') {
       if (b.level <= 3) flush()
       if (b.level === 3) { sec = { anchor: b.text, children: [] }; continue }
-      const el = h('h' + b.level, { key: 'b' + (k++) }, inline(b.text))
+      const el = h('h' + b.level, b.level === 2
+        ? { key: 'b' + (k++), 'data-akb-anchor': b.text, className: opt.hit === b.text ? 'akb-hhit' : null }
+        : { key: 'b' + (k++) }, inline(b.text))
       if (sec) sec.children.push(el); else out.push(el)
       continue
     }
@@ -347,7 +360,7 @@ function apply(ctx) {
     view: prefs.view === 'sources' ? 'sources' : 'topics', query: '', mine: false,
     page: null, stack: [], preview: prefs.preview === true, previewPage: 1, textTarget: '', focusSec: '', sumOpen: false, hit: 0
   })
-  const kb = makeStore({ index: null, page: null, pageError: null, text: null })
+  const kb = makeStore({ index: null, page: null, pageError: null, text: null, search: null })
   let draftWriter = null
   let rootHint = ''
 
@@ -392,6 +405,18 @@ function apply(ctx) {
       if (kb.get().text && kb.get().text.name === name) kb.set({ text: { name, lines: r.ok ? body.replace(/\r\n?/g, '\n').split('\n') : [], failed: !r.ok } })
     } catch (e) {
       kb.set({ text: { name, lines: [], failed: true } })
+    }
+  }
+  /** Full-text search, newest query wins. */
+  let searchSeq = 0
+  const runSearch = async (q) => {
+    const seq = ++searchSeq
+    if (!q.trim()) { kb.set({ search: null }); return }
+    try {
+      const r = await call('kbSearch', { q })
+      if (seq === searchSeq) kb.set({ search: r.ok ? { q, hits: r.hits } : { q, hits: [], error: r.message || r.error } })
+    } catch (e) {
+      if (seq === searchSeq) kb.set({ search: { q, hits: [], error: '搜索失败' } })
     }
   }
   const openPage = (target, push) => {
@@ -497,9 +522,33 @@ function apply(ctx) {
             key: x.name, type: 'button', className: 'akb-srcrow', title: x.title, onClick: () => openPage({ kind: 'source', name: x.name }, false)
           }, h('span', { className: 'n' }, x.name),
           x.mine ? h('span', { className: 'akb-mine' }, '我写的') : null,
+          x.scope === '私密' ? h('span', { className: 'akb-mine is-private' }, '私密') : null,
           h('span', { className: 'd' }, [x.author || x.origin, /^\d+$/.test(x.pages) ? x.pages + ' 页' : '',
             x.refs ? '被 ' + x.refs + ' 个主题引用' : '未被引用'].filter(Boolean).join(' · '))))))
       }))
+  }
+
+  /** Wrap every query term in <mark>. */
+  const marked = (text, terms) => {
+    if (!text || !terms.length) return text
+    const esc = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    return String(text).split(new RegExp('(' + esc.join('|') + ')', 'ig')).map((part, i) => (i % 2 ? h('mark', { key: i }, part) : part))
+  }
+  const Results = (s, res) => {
+    const terms = s.query.trim().split(/\s+/).filter(Boolean)
+    if (!res || res.q !== s.query) return h('div', { className: 'akb-empty' }, '搜索中…')
+    if (res.error) return h('div', { className: 'akb-empty' }, res.error)
+    if (!res.hits.length) return h('div', { className: 'akb-empty' }, '主题页和资料页里都没有「' + s.query.trim() + '」')
+    return h(React.Fragment, null,
+      h('div', { className: 'akb-meta' }, '全文搜索 · ' + res.hits.length + ' 处' + (res.hits.length >= 40 ? '（只显示前 40 处）' : '')),
+      res.hits.map((x, i) => h('button', {
+        key: x.kind + x.name + '#' + x.section + i, type: 'button', className: 'akb-hit',
+        onClick: () => openPage({ kind: x.kind, name: x.name, anchor: x.anchor }, false)
+      }, h('div', { className: 'akb-row' },
+        h('span', { className: 'akb-kind' + (x.kind === 'topic' ? ' is-topic' : '') }, x.kind === 'topic' ? '主题' : '资料'),
+        h('b', null, marked(x.title, terms)),
+        x.section ? h('span', { className: 'akb-meta', style: { flex: 'none' } }, '· ' + x.section) : null),
+      x.snippet ? h('div', { className: 's' }, marked(x.snippet, terms)) : null)))
   }
 
   // ---------- reader ----------
@@ -527,9 +576,9 @@ function apply(ctx) {
     }
     const section = (anchor, children, key) => {
       // 主题页的三级标题就是普通小标题；资料页的三级标题是页码或小节名，做成可定位的块。
-      if (cur.kind === 'topic') return h(React.Fragment, { key }, h('h3', null, anchor), children)
-      const pageNo = /^p(\d+)$/.exec(anchor)
       const hit = cur.anchor && cur.anchor === anchor
+      if (cur.kind === 'topic') return h('div', { key, className: 'akb-tsec' + (hit ? ' is-hit' : ''), 'data-akb-anchor': anchor }, h('h3', null, anchor), children)
+      const pageNo = /^p(\d+)$/.exec(anchor)
       let tag = h('span', { className: 'k' }, anchor)
       if (paged && pageNo) tag = h('button', { type: 'button', className: 'k', title: '看原文这一页', onClick: () => goPage(Number(pageNo[1])) }, anchor + ' · 看原文')
       else if (kind === 'text' && origs[anchor]) tag = h('button', { type: 'button', className: 'k', title: '在原文中定位：' + origs[anchor], onClick: () => goText(origs[anchor], anchor) }, anchor + ' · 看原文')
@@ -633,7 +682,7 @@ function apply(ctx) {
       err ? h('div', { className: 'akb-empty', style: { marginTop: 12 } }, err)
         : !page ? h('div', { className: 'akb-empty', style: { marginTop: 12 } }, '读取中…')
           : focus ? content
-            : h('div', { className: 'akb-md' }, renderMarkdown(page.body, { link, section })))
+            : h('div', { className: 'akb-md' }, renderMarkdown(page.body, { link, section, hit: cur.anchor })))
     return { head, preview, body, title }
   }
 
@@ -655,6 +704,11 @@ function apply(ctx) {
       const t = setInterval(() => { if (!document.hidden) refresh() }, POLL_MS)
       return () => clearInterval(t)
     }, [s.open, rootHint])
+    React.useEffect(() => {
+      if (!s.open) return
+      const t = setTimeout(() => runSearch(s.query), 220)
+      return () => clearTimeout(t)
+    }, [s.open, s.query, rootHint])
     // After a jump, bring the cited section into view.
     const pageKey = k.page ? k.page.kind + '/' + k.page.name : ''
     React.useEffect(() => {
@@ -753,12 +807,12 @@ function apply(ctx) {
         key: label, type: 'button', 'aria-pressed': s.mine === v, className: s.mine === v ? 'is-on' : '', onClick: () => ui.set({ mine: v })
       }, label))) : null)
     const search = h('div', { className: 'akb-bar', style: { paddingTop: 0 } }, h('input', {
-      className: 'akb-search', type: 'search', value: s.query, 'aria-label': '筛选',
-      placeholder: s.view === 'topics' ? '按标题筛选主题页' : '按名称、类型、作者筛选资料',
+      className: 'akb-search', type: 'search', value: s.query, 'aria-label': '全文搜索',
+      placeholder: '搜索主题页和资料页的全文，空格分隔多个词',
       onChange: (e) => ui.set({ query: e.target.value })
     }))
     return shell(bar, search,
-      h('div', { className: 'akb-body' }, s.view === 'topics' ? Topics(index, s) : Sources(index, s)),
+      h('div', { className: 'akb-body' }, s.query.trim() ? Results(s, k.search) : s.view === 'topics' ? Topics(index, s) : Sources(index, s)),
       index.example
         ? foot('先问问示例知识库试试', '← 问一个问题', '请基于示例知识库回答，回答带出处：写一份提案时，最容易被评审挑战的是哪几处？', false)
         : foot(index.inbox ? 'inbox 里有 ' + index.inbox + ' 份新资料待处理' : (index.latest ? '最近：' + index.latest : 'inbox 是空的'),
