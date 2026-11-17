@@ -249,6 +249,26 @@ async function search(kbDir, q) {
   return hits.slice(0, 40)
 }
 
+/** First value of a multi-value field: 「产品方法、增长」→「产品方法」. */
+const firstOf = (v) => String(v || '').split(/[、,，/]/)[0].trim()
+const listOf = (v) => String(v || '').split(/[、,，/]/).map((x) => x.trim()).filter(Boolean)
+
+/** The domain list from 偏好.md: the table whose first header cell is 领域, in its order. */
+async function domainList(kbDir) {
+  let text = ''
+  try { text = await readFile(path.join(kbDir, '偏好.md'), 'utf8') } catch { return [] }
+  const out = []
+  let inTable = false
+  for (const line of text.split(/\r?\n/)) {
+    const cells = /^\s*\|/.test(line) ? line.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim()) : null
+    if (!cells) { inTable = false; continue }
+    if (cells[0] === '领域') { inTable = true; continue }
+    if (!inTable || /^:?-+:?$/.test(cells[0]) || !cells[0]) continue
+    out.push(cells[0])
+  }
+  return [...new Set(out)]
+}
+
 async function readKb(kbDir) {
   const topics = []
   const refs = new Map()
@@ -260,7 +280,11 @@ async function readKb(kbDir) {
     const cited = new Set()
     for (const m of page.body.matchAll(/\]\(\.\.\/资料页\/([^)#]+)\.md/g)) cited.add(m[1])
     for (const c of cited) refs.set(c, (refs.get(c) || 0) + 1)
-    topics.push({ name, title: title.trim(), intro: intro.trim(), sources: cited.size, mtime: page.mtime })
+    const sections = page.body.split(/\r?\n/).filter((l) => /^##\s/.test(l) && !/可读性说明\s*$/.test(l)).length
+    topics.push({
+      name, title: title.trim(), intro: intro.trim(), sources: cited.size, mtime: page.mtime, sections,
+      domain: firstOf(page.meta['领域']), also: listOf(page.meta['也相关']), aboutMe: /^是/.test(page.meta['关于我'] || '')
+    })
   }
 
   const sources = []
@@ -284,7 +308,7 @@ async function readKb(kbDir) {
       raw: m['原文件'] || '',
       mine: /^是/.test(m['本人撰写'] || ''),
       scope: m['范围'] || '',
-      domain: m['领域'] || '',
+      domain: firstOf(m['领域']),
       hasRaw: !!rawAbs && (await isFile(rawAbs)),
       preview: preview ? preview.kind : '',
       previewPages: preview && preview.count ? preview.count : 0,
@@ -301,7 +325,7 @@ async function readKb(kbDir) {
     const heads = log.match(/^##\s+.+$/gm)
     if (heads && heads.length) latest = heads[heads.length - 1].replace(/^##\s+/, '').trim()
   } catch { /* no log yet */ }
-  return { topics, sources, inbox, latest }
+  return { topics, sources, inbox, latest, domains: await domainList(kbDir) }
 }
 
 export function apply(ctx) {

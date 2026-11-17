@@ -57,6 +57,16 @@ body[data-ds-dark-theme] .akb-root { --akb-accent:#5686fe; --akb-bg:var(--dsw-al
 .akb-primary:disabled { opacity:.45; cursor:default; }
 .akb-search { flex:1; min-width:0; font:inherit; font-size:13px; color:inherit; background:var(--akb-card); border:1px solid var(--akb-line); border-radius:8px; padding:5px 10px; }
 .akb-search:focus { outline:none; border-color:var(--akb-accent); }
+.akb-domain { display:flex; flex-direction:column; gap:8px; }
+.akb-domain + .akb-domain { margin-top:8px; }
+.akb-dh { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.akb-dh b { font-size:15px; font-weight:600; }
+.akb-dgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:8px; }
+.akb-dcard { text-align:left; background:var(--akb-card); border:1px solid var(--akb-line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:4px; min-width:0; }
+.akb-dcard:hover { border-color:var(--akb-accent); }
+.akb-dcard b { font-size:14px; font-weight:600; }
+.akb-meta.is-me { color:var(--akb-warn); }
+.akb-dempty { border:1px dashed var(--akb-line); border-radius:10px; padding:12px; font-size:12px; color:var(--akb-fg2); line-height:1.6; }
 .akb-topic { text-align:left; background:var(--akb-card); border:1px solid var(--akb-line); border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:4px; width:100%; }
 .akb-topic:hover { border-color:var(--akb-accent); }
 .akb-topic b { font-weight:600; font-size:15px; }
@@ -496,7 +506,38 @@ function apply(ctx) {
 
   // ---------- lists ----------
   const matches = (q, ...fields) => !q || fields.some((f) => String(f || '').toLowerCase().indexOf(q) !== -1)
+  /** Home grouped by 领域: one domain per block, its topics as cards. Flat list when no topic has a 领域. */
+  const DOMAIN_LATER = '待归类'
+  const Domains = (index) => {
+    const order = [...(index.domains || [])]
+    for (const d of [...index.topics.map((t) => t.domain), ...index.sources.map((x) => x.domain)]) {
+      if (d && !order.includes(d)) order.push(d)
+    }
+    order.push(DOMAIN_LATER)
+    const topicsOf = (d) => index.topics.filter((t) => (t.domain || DOMAIN_LATER) === d)
+    const sourcesOf = (d) => index.sources.filter((x) => (x.domain || DOMAIN_LATER) === d).length
+    const card = (t) => h('button', {
+      key: t.name, type: 'button', className: 'akb-dcard', title: t.intro, onClick: () => openPage({ kind: 'topic', name: t.name }, false)
+    }, h('b', null, t.title),
+    t.aboutMe
+      ? h('span', { className: 'akb-meta is-me' }, '关于我' + (t.sections ? ' · ' + t.sections + ' 节' : ''))
+      : h('span', { className: 'akb-meta' }, [t.sections ? t.sections + ' 节' : '', '引用 ' + t.sources + ' 份'].filter(Boolean).join(' · ')))
+    return order.map((d) => {
+      const ts = topicsOf(d)
+      const n = sourcesOf(d)
+      if (!ts.length && !n) return null
+      if (d === DOMAIN_LATER && !ts.length) return null
+      return h('div', { key: d, className: 'akb-domain' },
+        h('div', { className: 'akb-dh' }, h('b', null, d),
+          h('span', { className: 'akb-meta' }, ts.length + ' 个主题' + (n ? ' · ' + n + ' 份资料' : ''))),
+        ts.length
+          ? h('div', { className: 'akb-dgrid' }, ts.map(card))
+          : h('div', { className: 'akb-dempty' }, '还没有主题页。资料攒到三四份时，AI 会提议建一页。'))
+    })
+  }
+
   const Topics = (index, s) => {
+    if (index.topics.some((t) => t.domain)) return Domains(index)
     const q = s.query.trim().toLowerCase()
     const list = index.topics.filter((t) => matches(q, t.name, t.title, t.intro))
     return h(React.Fragment, null,
