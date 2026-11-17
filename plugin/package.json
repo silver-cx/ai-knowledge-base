@@ -1,0 +1,30 @@
+{
+  "name": "dsh-knowledge-base",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness 知识库面板：浏览 AI 维护的主题页和资料页，点出处跳到原文对应位置，带着当前页去提问。只读展示工作区里的 知识库/。",
+  "keywords": ["deepseek-harness", "dsh", "cordis", "plugin", "knowledge-base", "llm-wiki"],
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ],
+      "platform": "web"
+    }
+  },
+  "files": ["lib/index.js", "lib/client.js", "scripts/kb-previews.mjs", "cordis.patch.yml", "README.md"],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "react": "^18.2.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,8 @@
+# 你自己的知识库只留在本地（可以在 知识库/ 里单独建 git 做版本记录）
+/知识库/
+
+# 系统和编辑器文件
+.DS_Store
+Thumbs.db
+.obsidian/workspace*.json
+node_modules/
