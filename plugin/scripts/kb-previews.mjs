@@ -25,7 +25,7 @@ const args = process.argv.slice(2)
 const force = args.includes('--force')
 const onlyAt = args.indexOf('--only')
 const only = onlyAt !== -1 ? args[onlyAt + 1] : null
-const rootArg = args.find((a, i) => !a.startsWith('--') && i !== onlyAt + 1)
+const rootArg = args.find((a, i) => !a.startsWith('--') && (onlyAt === -1 || i !== onlyAt + 1))
 const kbDir = path.resolve(rootArg || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '知识库'))
 const pagesDir = path.join(kbDir, '资料页')
 const DPI = 90

@@ -77,8 +77,8 @@ body[data-ds-dark-theme] .akb-root { --akb-accent:#5686fe; --akb-bg:var(--dsw-al
 .akb-pv-bar { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 16px; font-size:12px; color:var(--akb-fg2); }
 .akb-pv-bar .nav { display:flex; align-items:center; gap:6px; }
 .akb-pv-frame { width:100%; aspect-ratio:16/10; border:none; background:#fff; display:block; }
-.akb-pv-img { width:100%; max-height:52vh; min-height:120px; object-fit:contain; background:#fff; display:block; }
-.akb-pv-text { max-height:42vh; overflow:auto; background:var(--akb-card); margin:0 12px 12px; border-radius:8px; border:1px solid var(--akb-line); padding:8px 0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; line-height:1.6; }
+.akb-pv-img { width:100%; max-height:46vh; min-height:120px; object-fit:contain; background:#fff; display:block; }
+.akb-pv-text { position:relative; max-height:42vh; overflow:auto; background:var(--akb-card); margin:0 12px 12px; border-radius:8px; border:1px solid var(--akb-line); padding:8px 0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; line-height:1.6; }
 .akb-pv-text div { padding:0 12px; white-space:pre-wrap; word-break:break-word; min-height:1.6em; }
 .akb-pv-text div.is-hit { background:color-mix(in srgb,var(--akb-accent) 16%,transparent); font-weight:600; }
 .akb-md { font-size:14px; line-height:1.7; display:flex; flex-direction:column; gap:10px; padding-top:8px; }
@@ -106,6 +106,26 @@ body[data-ds-dark-theme] .akb-root { --akb-accent:#5686fe; --akb-bg:var(--dsw-al
 .akb-cite:hover { background:color-mix(in srgb,var(--akb-accent) 22%,transparent); }
 .akb-pg { display:flex; align-items:center; gap:8px; margin:6px 0 0; scroll-margin-top:8px; }
 .akb-pg .k { font-size:12px; font-weight:600; color:var(--akb-fg2); border:1px solid var(--akb-line); background:var(--akb-card); border-radius:5px; padding:0 7px; font-variant-numeric:tabular-nums; }
+.akb-sum { display:flex; flex-direction:column; gap:4px; padding:8px 12px; margin-top:8px; border-radius:10px; background:var(--akb-card); border:1px solid var(--akb-line); font-size:13px; line-height:1.6; }
+.akb-sum .r { display:flex; gap:10px; align-items:baseline; min-width:0; }
+.akb-sum .r > b { flex:none; font-size:12px; font-weight:600; color:var(--akb-fg2); width:5.5em; white-space:nowrap; }
+.akb-sum .r > div { flex:1; min-width:0; }
+.akb-sum .r > div p { margin:0; }
+.akb-sum.is-clamp { cursor:pointer; }
+.akb-sum.is-clamp:hover { border-color:var(--akb-accent); }
+.akb-sum.is-clamp .r > div { display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+.akb-sum .more { align-self:flex-start; border:none; background:none; padding:0; font-size:12px; color:var(--akb-accent); }
+.akb-focus { display:flex; flex-direction:column; gap:8px; padding:12px 14px; border-radius:10px; background:color-mix(in srgb,var(--akb-accent) 7%,var(--akb-card)); border:1px solid color-mix(in srgb,var(--akb-accent) 30%,transparent); }
+.akb-focus .top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.akb-focus .top .k { font-size:12px; font-weight:600; color:var(--akb-accent); border:1px solid color-mix(in srgb,var(--akb-accent) 40%,transparent); border-radius:5px; padding:0 7px; }
+.akb-focus .nav { display:flex; gap:6px; }
+.akb-gap { display:flex; flex-direction:column; gap:10px; padding:14px; border:1px dashed var(--akb-line); border-radius:10px; font-size:13px; color:var(--akb-fg2); }
+.akb-gap .nav { display:flex; gap:8px; }
+.akb-refs { display:flex; flex-direction:column; gap:6px; }
+.akb-refs .h { font-size:12px; font-weight:600; color:var(--akb-fg2); }
+.akb-ref { text-align:left; border:1px solid var(--akb-line); background:var(--akb-card); border-radius:8px; padding:7px 10px; font-size:13px; line-height:1.55; display:flex; flex-direction:column; gap:2px; }
+.akb-ref:hover { border-color:var(--akb-accent); }
+.akb-ref b { font-weight:600; color:var(--akb-accent); font-size:12px; }
 button.k:hover { border-color:var(--akb-accent) !important; color:var(--akb-accent) !important; }
 .akb-sec { display:flex; flex-direction:column; gap:6px; border-radius:10px; padding:2px 0; scroll-margin-top:8px; }
 .akb-sec.is-hit { background:color-mix(in srgb,var(--akb-accent) 9%,transparent); box-shadow:0 0 0 6px color-mix(in srgb,var(--akb-accent) 9%,transparent); }
@@ -174,6 +194,33 @@ const originalHeadings = (body) => {
   while ((m = re.exec(body || ''))) map[m[1]] = m[2]
   return map
 }
+/**
+ * Split a 资料页 into its summary parts (`## 一句话`, `## 什么时候看`, or the
+ * leading `>` line) and its `###` sections, each with its own markdown text.
+ */
+const splitPage = (body) => {
+  const h2 = {}
+  const secs = []
+  let intro = ''
+  let h2name = null
+  let sec = null
+  let buf = []
+  const flush = () => { if (sec !== null) { secs.push({ anchor: sec, text: buf.join('\n').trim() }); sec = null; buf = [] } }
+  for (const l of String(body || '').replace(/\r\n?/g, '\n').split('\n')) {
+    const m3 = /^###\s+(.+?)\s*$/.exec(l)
+    const m2 = m3 ? null : /^##\s+(.+?)\s*$/.exec(l)
+    if (m2) { flush(); h2name = m2[1]; h2[h2name] = ''; continue }
+    if (m3) { flush(); sec = m3[1]; continue }
+    if (sec !== null) { buf.push(l); continue }
+    if (h2name !== null) { h2[h2name] += l + '\n'; continue }
+    const q = /^>\s*(.+)$/.exec(l)
+    if (!intro && q && !ORIG.test(q[1].trim())) intro = q[1].trim()
+  }
+  flush()
+  for (const n in h2) h2[n] = h2[n].trim()
+  return { intro, h2, secs }
+}
+const PAGE_ANCHOR = /^p(\d+)$/
 /** Normalise a line of a text original for heading matching. */
 const normLine = (s) => s.replace(/^\s*#+\s*/, '').replace(/^\s*[*_`]+|[*_`]+\s*$/g, '').replace(/[:：]\s*$/, '').trim()
 const findLine = (lines, target) => {
@@ -298,7 +345,7 @@ function apply(ctx) {
   const ui = makeStore({
     open: prefs.open === true, wide: false, note: null,
     view: prefs.view === 'sources' ? 'sources' : 'topics', query: '', mine: false,
-    page: null, stack: [], preview: prefs.preview === true, previewPage: 1, textTarget: '', hit: 0
+    page: null, stack: [], preview: prefs.preview === true, previewPage: 1, textTarget: '', focusSec: '', sumOpen: false, hit: 0
   })
   const kb = makeStore({ index: null, page: null, pageError: null, text: null })
   let draftWriter = null
@@ -353,7 +400,7 @@ function apply(ctx) {
     const pageNo = /^p(\d+)$/.exec(target.anchor || '')
     ui.set({
       page: { kind: target.kind, name: target.name, anchor: target.anchor || '' }, stack,
-      previewPage: pageNo ? Number(pageNo[1]) : 1, textTarget: '', hit: s.hit + 1
+      previewPage: pageNo ? Number(pageNo[1]) : 1, textTarget: '', focusSec: target.anchor || '', hit: s.hit + 1
     })
     const loaded = kb.get().page
     if (!loaded || loaded.kind !== target.kind || loaded.name !== target.name) kb.set({ page: null, pageError: null })
@@ -362,7 +409,8 @@ function apply(ctx) {
   const closePage = () => {
     const s = ui.get()
     if (s.stack.length) {
-      ui.set({ page: s.stack[s.stack.length - 1], stack: s.stack.slice(0, -1), textTarget: '', hit: s.hit + 1 })
+      const prev = s.stack[s.stack.length - 1]
+      ui.set({ page: prev, stack: s.stack.slice(0, -1), textTarget: '', focusSec: prev.anchor || '', hit: s.hit + 1 })
       kb.set({ page: null, pageError: null })
       refresh()
     } else {
@@ -464,7 +512,9 @@ function apply(ctx) {
     const total = byImage ? src.previewPages : (src && /^\d+$/.test(src.pages) ? Number(src.pages) : 0)
     const origs = page && cur.kind === 'source' ? originalHeadings(page.body) : {}
     const goPage = (n) => ui.set({ preview: true, previewPage: Math.max(1, total ? Math.min(total, n) : n) })
-    const goText = (heading) => ui.set({ preview: true, textTarget: heading, hit: s.hit + 1 })
+    const goText = (heading, anchor) => ui.set({ preview: true, textTarget: heading, focusSec: anchor || s.focusSec, hit: s.hit + 1 })
+    /** Focus one section: scroll a text original to it, or just show it. */
+    const focusOn = (anchor) => (kind === 'text' && origs[anchor] ? goText(origs[anchor], anchor) : ui.set({ focusSec: anchor }))
     const link = (href, label, key) => {
       const t = resolveLink(href, cur.kind)
       if (!t) return h('span', { key }, label)
@@ -482,7 +532,7 @@ function apply(ctx) {
       const hit = cur.anchor && cur.anchor === anchor
       let tag = h('span', { className: 'k' }, anchor)
       if (paged && pageNo) tag = h('button', { type: 'button', className: 'k', title: '看原文这一页', onClick: () => goPage(Number(pageNo[1])) }, anchor + ' · 看原文')
-      else if (kind === 'text' && origs[anchor]) tag = h('button', { type: 'button', className: 'k', title: '在原文中定位：' + origs[anchor], onClick: () => goText(origs[anchor]) }, anchor + ' · 看原文')
+      else if (kind === 'text' && origs[anchor]) tag = h('button', { type: 'button', className: 'k', title: '在原文中定位：' + origs[anchor], onClick: () => goText(origs[anchor], anchor) }, anchor + ' · 看原文')
       return h('div', { key, className: 'akb-sec' + (hit ? ' is-hit' : ''), 'data-akb-anchor': anchor }, h('div', { className: 'akb-pg' }, tag), children)
     }
     const title = src ? src.title : ((index.topics || []).find((t) => t.name === cur.name) || {}).title || cur.name
@@ -526,17 +576,64 @@ function apply(ctx) {
       }
       preview = h('div', { className: 'akb-pv' },
         h('div', { className: 'akb-pv-bar' },
-          h('span', null, kind === 'text' ? '原文' + (s.textTarget || origs[cur.anchor] ? ' · 已定位到对应小节' : '') : paged ? '原文预览' : '原图'),
+          h('span', null, kind === 'text' ? '原文 · 滚动时下方记录跟着换' : paged ? '原文预览 · 翻页时下方记录跟着换' : '原图'),
           paged ? h('span', { className: 'nav' },
             h('button', { type: 'button', className: 'akb-ghost', disabled: s.previewPage <= 1, onClick: () => goPage(s.previewPage - 1) }, '‹ 上一页'),
             h('b', { style: { color: 'var(--akb-fg)', fontVariantNumeric: 'tabular-nums' } }, s.previewPage + (total ? ' / ' + total : '')),
             h('button', { type: 'button', className: 'akb-ghost', disabled: !!total && s.previewPage >= total, onClick: () => goPage(s.previewPage + 1) }, '下一页 ›')) : null),
         view)
     }
+    // 对照模式：原文开着时，下方只显示当前这一页（或这一节）的记录，翻页跟着走。
+    const focus = !!(page && kind && s.preview && (paged || kind === 'text'))
+    const md = (text) => h('div', { className: 'akb-md', style: { paddingTop: 0 } }, renderMarkdown(text, { link, section }))
+    let content = null
+    if (focus) {
+      const sp = splitPage(page.body)
+      const one = sp.h2['一句话'] || sp.intro || ''
+      const when = sp.h2['什么时候看'] || ''
+      const byPage = paged && sp.secs.some((x) => PAGE_ANCHOR.test(x.anchor))
+      const curAnchor = byPage ? 'p' + s.previewPage
+        : (sp.secs.some((x) => x.anchor === s.focusSec) ? s.focusSec : (sp.secs[0] || {}).anchor || '')
+      const at = sp.secs.findIndex((x) => x.anchor === curAnchor)
+      const sec = at === -1 ? null : sp.secs[at]
+      const pagesWithNotes = byPage ? sp.secs.map((x) => PAGE_ANCHOR.exec(x.anchor)).filter(Boolean).map((m) => Number(m[1])) : []
+      const prevNote = pagesWithNotes.filter((n) => n < s.previewPage).pop()
+      const nextNote = pagesWithNotes.filter((n) => n > s.previewPage)[0]
+      const refs = (page.citedBy || []).filter((c) => c.anchor && c.anchor === curAnchor)
+      // 收起时每项只占一行，点一下展开全文。
+      const sum = one || when ? h('div', {
+        className: 'akb-sum' + (s.sumOpen ? '' : ' is-clamp'), title: s.sumOpen ? null : '点击展开全文',
+        onClick: s.sumOpen ? null : () => ui.set({ sumOpen: true })
+      },
+      one ? h('div', { className: 'r' }, h('b', null, '一句话'), md(one)) : null,
+      when ? h('div', { className: 'r' }, h('b', null, '什么时候看'), md(when)) : null,
+      s.sumOpen ? h('button', { type: 'button', className: 'more', onClick: () => ui.set({ sumOpen: false }) }, '收起') : null) : null
+      const card = sec
+        ? h('div', { className: 'akb-focus' },
+          h('div', { className: 'top' },
+            h('span', { className: 'k' }, byPage ? '第 ' + s.previewPage + ' 页' : curAnchor),
+            byPage ? null : h('span', { className: 'nav' },
+              h('button', { type: 'button', className: 'akb-ghost', disabled: at <= 0, onClick: () => focusOn(sp.secs[at - 1].anchor) }, '‹ 上一节'),
+              h('button', { type: 'button', className: 'akb-ghost', disabled: at >= sp.secs.length - 1, onClick: () => focusOn(sp.secs[at + 1].anchor) }, '下一节 ›'))),
+          md(sec.text))
+        : h('div', { className: 'akb-gap' },
+          byPage ? '第 ' + s.previewPage + ' 页没有单独记录，多为封面、目录或过渡页。' : '这份资料还没有分节记录。',
+          byPage && (prevNote || nextNote) ? h('div', { className: 'nav' },
+            prevNote ? h('button', { type: 'button', className: 'akb-ghost', onClick: () => goPage(prevNote) }, '‹ 看 p' + prevNote) : null,
+            nextNote ? h('button', { type: 'button', className: 'akb-ghost', onClick: () => goPage(nextNote) }, '看 p' + nextNote + ' ›') : null) : null)
+      const refBox = refs.length ? h('div', { className: 'akb-refs' },
+        h('div', { className: 'h' }, '这一' + (byPage ? '页' : '节') + '被主题页引用'),
+        refs.map((c, i) => h('button', {
+          key: i, type: 'button', className: 'akb-ref', title: '打开主题页：' + c.title,
+          onClick: () => openPage({ kind: 'topic', name: c.topic }, true)
+        }, h('b', null, c.title), c.text ? h('span', null, c.text) : null))) : null
+      content = h(React.Fragment, null, sum, card, refBox)
+    }
     const body = h('div', { className: 'akb-body', 'data-akb-reader': '1' },
       err ? h('div', { className: 'akb-empty', style: { marginTop: 12 } }, err)
         : !page ? h('div', { className: 'akb-empty', style: { marginTop: 12 } }, '读取中…')
-          : h('div', { className: 'akb-md' }, renderMarkdown(page.body, { link, section })))
+          : focus ? content
+            : h('div', { className: 'akb-md' }, renderMarkdown(page.body, { link, section })))
     return { head, preview, body, title }
   }
 
@@ -580,8 +677,37 @@ function apply(ctx) {
       if (!box) return
       const at = Number(box.getAttribute('data-akb-at'))
       const row = at >= 0 ? box.children[at] : null
-      box.scrollTop = row ? Math.max(0, row.offsetTop - box.offsetTop - 8) : 0
+      box.scrollTop = row ? Math.max(0, row.offsetTop - 8) : 0
     }, [textReady, s.hit, pageKey])
+    // Text originals: the section shown below follows what is scrolled to the top of the original.
+    React.useEffect(() => {
+      if (!textReady || !k.page) return
+      const box = document.querySelector('.akb-root [data-akb-text]')
+      if (!box) return
+      const lines = k.text.lines
+      const origs = originalHeadings(k.page.body)
+      const marks = splitPage(k.page.body).secs
+        .map((x) => ({ anchor: x.anchor, line: origs[x.anchor] ? findLine(lines, origs[x.anchor]) : -1 }))
+        .filter((m) => m.line >= 0).sort((a, b) => a.line - b.line)
+      if (!marks.length) return
+      let raf = 0
+      const onScroll = () => {
+        if (raf) return
+        raf = requestAnimationFrame(() => {
+          raf = 0
+          const kids = box.children
+          const y = box.scrollTop + 12
+          let lo = 0
+          let hi = kids.length - 1
+          while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (kids[mid].offsetTop <= y) lo = mid; else hi = mid - 1 }
+          let cur = marks[0]
+          for (const m of marks) if (m.line <= lo) cur = m
+          if (cur.anchor !== ui.get().focusSec) ui.set({ focusSec: cur.anchor })
+        })
+      }
+      box.addEventListener('scroll', onScroll)
+      return () => { box.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf) }
+    }, [textReady, pageKey, s.preview])
     React.useEffect(() => {
       if (!s.open) return
       const dock = () => applyDock(width)

@@ -150,6 +150,41 @@ const mdNames = async (dir) => (await listDir(dir))
   .filter((e) => e.isFile() && !isHidden(e.name) && e.name.endsWith('.md'))
   .map((e) => e.name.slice(0, -3))
 
+const plain = (line) => line
+  .replace(/〔[^〕]*〕/g, '')
+  .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+  .replace(/\*\*|`/g, '')
+  .replace(/^\s*(?:[-*]|\d+\.)\s+(?:\[[ xX]\]\s+)?/, '')
+  .replace(/^\|\s*|\s*\|$/g, '').replace(/\s*\|\s*/g, ' · ')
+  .replace(/(?:\s*·\s*){2,}/g, ' · ').replace(/^\s*·\s*|\s*·\s*$/g, '')
+  .trim()
+
+/** Every place a 主题页 cites `name`: { topic, title, anchor, text } with the citing line as context. */
+async function citedBy(kbDir, name) {
+  const out = []
+  const seen = new Set()
+  for (const topic of (await mdNames(path.join(kbDir, KINDS.topic))).sort((a, b) => a.localeCompare(b, 'zh', { numeric: true }))) {
+    const page = await readKbFile(kbDir, 'topic', topic)
+    if (!page) continue
+    const title = ((/^#\s+(.+)$/m.exec(page.body) || [])[1] || topic).trim()
+    for (const line of page.body.split(/\r?\n/)) {
+      for (const m of line.matchAll(/\]\(\.\.\/资料页\/([^)#]+)\.md(?:#([^)]+))?\)/g)) {
+        let target = m[1]
+        let anchor = m[2] || ''
+        try { target = decodeURIComponent(target); anchor = decodeURIComponent(anchor) } catch { /* keep as written */ }
+        if (target !== name) continue
+        let text = plain(line)
+        if (text.length > 90) text = text.slice(0, 89) + '…'
+        const key = topic + '\n' + anchor + '\n' + text
+        if (seen.has(key)) continue
+        seen.add(key)
+        out.push({ topic, title, anchor, text })
+      }
+    }
+  }
+  return out
+}
+
 async function readKb(kbDir) {
   const topics = []
   const refs = new Map()
@@ -255,7 +290,8 @@ export function apply(ctx) {
       if (!kb) return noKb
       const page = await readKbFile(kb.dir, args.kind, args.name)
       if (!page) return { ok: false, error: 'not-found', message: '没有找到这一页：' + String(args.name) }
-      return Object.assign({ ok: true, kind: args.kind, name: args.name }, page)
+      const extra = args.kind === 'source' ? { citedBy: await citedBy(kb.dir, args.name) } : {}
+      return Object.assign({ ok: true, kind: args.kind, name: args.name }, page, extra)
     },
 
     /** 用系统默认软件打开某份资料的原文件。只认资料页属性里登记的路径。 */
