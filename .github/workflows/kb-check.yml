@@ -1,0 +1,16 @@
+name: kb-check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 校验示例知识库（出处链接、必填属性、孤立资料）
+        run: node plugin/scripts/kb-check.mjs 示例/知识库 --strict

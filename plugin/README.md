@@ -36,6 +36,7 @@ dsh plugin --profile web add ./plugin
   `GET /__dsh-kb/raw?name=<引用名>[&page=N]`。只读，只会读取资料页属性里登记、且位于 `原始资料/` 或 `预览/` 下的文件。
 - `lib/client.js`：Client 半（ModuleLoader 格式）。React 面板，每 4 秒轮询一次。
   使用的 slot：`conversation.session.header.utilities`（开关）、`shell.overlay`（面板）、`conversation.input.dock`（写入对话框草稿）。
+- `scripts/kb-check.mjs`：只读的校验脚本，查出处链接和小节、必填属性、原文件、孤立资料。`node plugin/scripts/kb-check.mjs 知识库`，加 `--strict` 时提醒也算失败，加 `--json` 输出机器可读结果。
 - `scripts/kb-previews.mjs`：给 PDF / PPT / Word 生成逐页预览图。
 
 ## 原文预览

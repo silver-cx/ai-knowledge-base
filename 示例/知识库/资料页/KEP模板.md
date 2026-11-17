@@ -1,6 +1,8 @@
 ---
 标题: Kubernetes 增强提案（KEP）模板
 类型: 文档模板
+范围: 可公开
+领域: 提案写作
 作者: Kubernetes 社区
 来源: kubernetes/enhancements 仓库
 读取方式: 全文读取（生产就绪问卷只摘了问题，不含各项的细则）
