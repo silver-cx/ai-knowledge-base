@@ -78,7 +78,7 @@ body[data-ds-dark-theme] .akb-root { --akb-accent:#5686fe; --akb-bg:var(--dsw-al
 .akb-pv-bar .nav { display:flex; align-items:center; gap:6px; }
 .akb-pv-frame { width:100%; aspect-ratio:16/10; border:none; background:#fff; display:block; }
 .akb-pv-img { width:100%; max-height:46vh; min-height:120px; object-fit:contain; background:#fff; display:block; }
-.akb-pv-text { position:relative; max-height:42vh; overflow:auto; background:var(--akb-card); margin:0 12px 12px; border-radius:8px; border:1px solid var(--akb-line); padding:8px 0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; line-height:1.6; }
+.akb-pv-text { position:relative; max-height:32vh; overflow:auto; background:var(--akb-card); margin:0 12px 12px; border-radius:8px; border:1px solid var(--akb-line); padding:8px 0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; line-height:1.6; }
 .akb-pv-text div { padding:0 12px; white-space:pre-wrap; word-break:break-word; min-height:1.6em; }
 .akb-pv-text div.is-hit { background:color-mix(in srgb,var(--akb-accent) 16%,transparent); font-weight:600; }
 .akb-md { font-size:14px; line-height:1.7; display:flex; flex-direction:column; gap:10px; padding-top:8px; }
