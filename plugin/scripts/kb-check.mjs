@@ -17,6 +17,7 @@
  *   - 资料页没填 范围、领域，或领域是 待归类；主题页没填 领域
  *   - 资料页的 ### 小节名含空格，或含 # | ^ [ ] : 这类会让链接断掉的字符
  *   - 写了 版本 却没有「### 版本变更」
+ *   - 主题页引言写的「编自 N 份」和实际引用的资料数对不上
  *   - 资料页里还留着手写的「被这些主题页引用」
  *
  * 规则说明见 AGENTS.md。体检时先跑它，AI 只处理脚本查不了的部分（内容对不对、结论有没有矛盾）。
@@ -105,6 +106,11 @@ for (const t of topics) {
     if (!topicNames.has(target)) err(t.file + ':' + (lineOf(t.body, m.index) + offset), `链接的主题页不存在：${target}`)
   }
   if (usesDomain && !t.meta['领域']) warn(t.file, '主题页没填 领域')
+  const said = /^>.*?编(?:译)?自\s*(\d+)\s*份/m.exec(t.body)
+  if (said) {
+    const n = new Set([...t.body.matchAll(/\]\(\.\.\/资料页\/([^)#]+?)\.md/g)].map((m) => dec(m[1]))).size
+    if (Number(said[1]) !== n) warn(t.file, `引言写「编自 ${said[1]} 份」，实际引用了 ${n} 份资料`)
+  }
 }
 
 // ---- 资料页：属性、原文件、引用名、小节
