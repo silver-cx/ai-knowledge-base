@@ -15,7 +15,8 @@
  * 提醒（--strict 时也算错误）：
  *   - 没被任何主题页引用的资料页
  *   - 资料页没填 范围、领域，或领域是 待归类；主题页没填 领域
- *   - 资料页的 ### 小节名含空格
+ *   - 资料页的 ### 小节名含空格，或含 # | ^ [ ] : 这类会让链接断掉的字符
+ *   - 写了 版本 却没有「### 版本变更」
  *   - 资料页里还留着手写的「被这些主题页引用」
  *
  * 规则说明见 AGENTS.md。体检时先跑它，AI 只处理脚本查不了的部分（内容对不对、结论有没有矛盾）。
@@ -122,7 +123,11 @@ for (const s of sources) {
   else if (!/^(私密|工作|可公开)/.test(m['范围'])) warn(s.file, '范围 只能是 私密、工作、可公开：' + m['范围'])
   if (!m['领域']) warn(s.file, '没填 领域')
   else if (/待归类/.test(m['领域'])) warn(s.file, '领域 还是 待归类')
-  for (const h of headingsOf.get(s.name)) if (/\s/.test(h)) warn(s.file, `小节名含空格，出处链接会断：### ${h}`)
+  for (const h of headingsOf.get(s.name)) {
+    if (/\s/.test(h)) warn(s.file, `小节名含空格，出处链接会断：### ${h}`)
+    else if (/[#|^[\]:%]/.test(h)) warn(s.file, `小节名含 # | ^ [ ] : % 这类字符，Obsidian 里跳不过去：### ${h}`)
+  }
+  if (m['版本'] && !headingsOf.get(s.name).has('版本变更')) warn(s.file, `写了 版本（${m['版本']}），但没有「### 版本变更」说明这一版改了什么`)
   if (/^##\s+被这些主题页引用/m.test(s.body)) warn(s.file, '还留着手写的「被这些主题页引用」，引用关系由面板自动计算，这一节可以删掉')
   if (!cited.has(s.name)) warn(s.file, '没被任何主题页引用（孤立资料）')
 }

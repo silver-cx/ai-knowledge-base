@@ -37,6 +37,7 @@ dsh plugin --profile web add ./plugin
 - `lib/client.js`：Client 半（ModuleLoader 格式）。React 面板，每 4 秒轮询一次。
   使用的 slot：`conversation.session.header.utilities`（开关）、`shell.overlay`（面板）、`conversation.input.dock`（写入对话框草稿）。
 - `scripts/kb-check.mjs`：只读的校验脚本，查出处链接和小节、必填属性、原文件、孤立资料。`node plugin/scripts/kb-check.mjs 知识库`，加 `--strict` 时提醒也算失败，加 `--json` 输出机器可读结果。
+- `scripts/kb-search.mjs`：命令行全文搜索，和面板的搜索是同一套逻辑。`node plugin/scripts/kb-search.mjs 知识库 关键词 [关键词…]`，结果精确到小节；给不打开面板的 AI 工具用。
 - `scripts/kb-previews.mjs`：给 PDF / PPT / Word 生成逐页预览图。
 
 ## 原文预览

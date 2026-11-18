@@ -204,13 +204,14 @@ function blocksOf(body) {
     const m = /^(#{1,3})\s+(.+?)\s*$/.exec(l)
     if (m && m[1].length >= 2) { out.push({ anchor: m[2], level: m[1].length, lines: [] }); continue }
     if (m) continue
+    if (/^>\s*原文[：:]/.test(l)) continue // 定位用的原文标题，不算正文
     out[out.length - 1].lines.push(l)
   }
   return out.map((b) => ({ anchor: b.anchor, level: b.level, text: b.lines.map(plain).filter(Boolean).join(' ') }))
 }
 
 /** Full-text search over 主题页 and 资料页; every term must appear in the hit block. */
-async function search(kbDir, q) {
+export async function search(kbDir, q) {
   const terms = [...new Set(String(q || '').toLowerCase().split(/\s+/).filter(Boolean))].slice(0, 6)
   if (!terms.length) return []
   const hits = []

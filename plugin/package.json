@@ -21,7 +21,7 @@
       "platform": "web"
     }
   },
-  "files": ["lib/index.js", "lib/client.js", "scripts/kb-previews.mjs", "scripts/kb-check.mjs", "cordis.patch.yml", "README.md"],
+  "files": ["lib/index.js", "lib/client.js", "scripts/kb-previews.mjs", "scripts/kb-check.mjs", "scripts/kb-search.mjs", "cordis.patch.yml", "README.md"],
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "react": "^18.2.0"

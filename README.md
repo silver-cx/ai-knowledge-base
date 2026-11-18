@@ -88,7 +88,7 @@ flowchart LR
 安装：在 DeepSeek Harness 里打开本文件夹，对 agent 说「**帮我安装 plugin 文件夹里的知识库插件**」，然后重启。
 （手动安装：`dsh plugin --profile web add ./plugin`，详见 [plugin/README.md](plugin/README.md)。）
 
-**说清楚边界**：知识库本身（Markdown + 规则）任何 AI 工具都能读写，Obsidian 里点链接也能跳到对应小节；
+**说清楚边界**：知识库本身（Markdown + 规则）任何 AI 工具都能读写，Obsidian 里点链接也能跳到对应小节（GitHub 网页上不保证能定位到小节）；
 但上面这些「点出处高亮、逐页看原文、按领域分组、全文搜索」只在 DeepSeek Harness 面板里有。
 用别的工具时，你得到的是一个整理好的文件夹，体验取决于你用什么打开它。
 
@@ -101,6 +101,12 @@ node plugin/scripts/kb-check.mjs 知识库
 ```
 
 它检查每一处出处链接能不能找到对应的资料页和小节、资料页的必填属性、原文件在不在、有没有没被引用的资料。
+
+资料多了以后，AI 不必把整个知识库读一遍：先用搜索脚本定位，再只读命中的那几页，消耗不会随资料量线性增长。
+
+```
+node plugin/scripts/kb-search.mjs 知识库 替代方案
+```
 示例知识库在每次提交时都会自动跑一遍（见 `.github/workflows/kb-check.yml`）。
 脚本查不了「资料页写的数字和原文一不一致」，所以体检时还会让 AI 随机抽几条回原文核对，最好换一个对话来抽查。
 
@@ -124,7 +130,7 @@ AGENTS.md          给 AI 的工作规则（CLAUDE.md 指向它）
   偏好.md  日志.md
 示例/知识库/       示例知识库
 模板/知识库/       初始化用的骨架
-plugin/            DeepSeek Harness 面板（可选）和两个脚本：预览图、校验
+plugin/            DeepSeek Harness 面板（可选）和三个脚本：预览图、校验、搜索
 docs/方法.md       这套方法的来龙去脉
 docs/规则变更.md   规则版本和升级说明
 ```
